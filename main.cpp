@@ -76,15 +76,29 @@ int main()
 		// 허프
 		vector<Vec4i> lines1;
 		HoughLinesP(edge, lines1, 1, CV_PI / 180, 30, 30, 10);
-
+		
+		vector<Vec4i> l_lines, r_lines;
 		for (size_t i = 0; i < lines1.size(); i++) {
 			Vec4i l = lines1[i];
 
-			if (abs(l[3] - l[1]) > 10) {
-				line(frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 0, 255), 2, LINE_AA);
+			if (abs(l[3] - l[1]) > 30) {
+				if (l[0] < 320 && l[2] < 320) {
+					l_lines.push_back(l);
+				}
+				else if (l[0] > 320 && l[2] > 320) {
+					r_lines.push_back(l);
+				}
 			}
 		}
 
+		for (size_t i = 0; i < l_lines.size(); i++) {
+			Vec4i l = l_lines[i];
+			line(frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 0, 255), 2, LINE_AA);
+		}
+		for (size_t i = 0; i < r_lines.size(); i++) {
+			Vec4i l = r_lines[i];
+			line(frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(255, 0, 0), 2, LINE_AA);
+		}
 		// 노이즈처리
 
 		imshow("frame", frame);
