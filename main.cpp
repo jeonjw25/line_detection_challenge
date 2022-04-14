@@ -1,21 +1,26 @@
 #include <iostream>
+#include <cstdlib>
 #include "opencv2/opencv.hpp"
 
 using namespace std;
 using namespace cv;
 
-int lpos, rpos;
-
-
 
 //void keep_brightness(frame, int target);
 //void noise_handling(frame);
+int get_pos_ransac(vector<Vec4i>& lines, double inlier_thres = 20.0, int pos_height = 400);
+
+template <typename T>
+void get_line_param(T& p1, T& p2, double& m, double& n);
 
 int pos_hue1 = 10, pos_hue2 = 30, pos_sat1 = 100, pos_sat2 = 255;
 Scalar lowerb(pos_hue1, pos_sat1, 100);
 Scalar upperb(pos_hue2, pos_sat2, 255);
+
 int main()
 {
+	srand(0);
+
 	VideoCapture cap;
 	cap.open("subProject.avi");
 
@@ -93,13 +98,28 @@ int main()
 
 		for (size_t i = 0; i < l_lines.size(); i++) {
 			Vec4i l = l_lines[i];
+			//cout << Point(l[0], l[1]) << " " << Point(l[2], l[3]) << endl;
 			line(frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0, 0, 255), 2, LINE_AA);
 		}
 		for (size_t i = 0; i < r_lines.size(); i++) {
 			Vec4i l = r_lines[i];
 			line(frame, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(255, 0, 0), 2, LINE_AA);
 		}
-		// 노이즈처리
+
+		int lpos, rpos;
+
+		if (l_lines.size() == 0)
+			lpos = 0;
+		else
+			lpos = get_pos_ransac(l_lines);
+
+		if (r_lines.size() == 0)
+			rpos = 640;
+		else
+			rpos = get_pos_ransac(r_lines);
+
+		rectangle(frame, Rect(Point(lpos - 10, 390), Point(lpos + 10, 410)), Scalar(0, 255, 0), 2, LINE_AA);
+		rectangle(frame, Rect(Point(rpos - 10, 390), Point(rpos + 10, 410)), Scalar(0, 255, 0), 2, LINE_AA);
 
 		imshow("frame", frame);
 		imshow("frame_edge", frame_edge);
@@ -111,4 +131,65 @@ int main()
 
 	cap.release();
 	destroyAllWindows();
+}
+
+int get_pos_ransac(vector<Vec4i>& lines, double inlier_thres, int pos_height) 
+{
+	vector<Point2d> points;
+
+	// gather dots from lines
+	for (size_t i = 0; i < lines.size(); i++) {
+		Vec4i l = lines[i];
+		double m = (double)(l[0] - l[2])/(l[1] - l[3]);
+		
+		for (int x = l[0]; x <= l[2]; x++) {
+			double y = m * (x - l[0]) + l[1];
+			points.emplace_back(Point2d(x, y));
+		}
+	}
+
+	int max_count = 0;
+	int max_p1, max_p2;
+
+	for (int i = 0; i < 30; i++) {
+		// select two points randomly
+		int p1 = rand() % points.size();
+		int p2 = rand() % points.size();
+
+		while (p1 == p2) 
+			p2 = rand() % points.size();
+
+		// compute params
+		double m, n;
+		get_line_param(points[p1], points[p2], m, n);
+
+
+		// varfication
+		int count = 0;
+
+		for (auto& point : points) {
+			double distance = abs(m * point.x - point.y + n) / sqrt(m * m + 1);
+			if (distance < inlier_thres)
+				count++;
+		}
+
+		if (count > max_count) {
+			max_p1 = p1;
+			max_p2 = p2;
+		}
+	}
+
+	// calculate pos
+	double m, n;
+	get_line_param(points[max_p1], points[max_p2], m, n);
+
+	int pos = cvRound((pos_height - n) / m);
+	return pos;
+}
+
+
+template <typename T>
+void get_line_param(T& p1, T& p2, double& m, double& n) {
+	m = (double)(p1.y - p2.y) / (p1.x - p2.x);
+	n = -m * p1.x + p1.y;
 }
