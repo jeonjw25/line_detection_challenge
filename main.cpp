@@ -46,9 +46,9 @@ int main()
 	
 	Mat frame, edge;
 	while (true) {
-		Mat gray,  frame_hsv, frame_edge;
+		Mat gray, frame_hsv, frame_edge;
 		cap >> frame;
-		
+
 		//line(frame, pts[0], pts[1], Scalar(255, 0, 0), 2);
 		//line(frame, pts[1], pts[2], Scalar(255, 0, 0), 2);
 		//line(frame, pts[2], pts[3], Scalar(255, 0, 0), 2);
@@ -73,7 +73,7 @@ int main()
 
 		// 이진화
 		Mat dst_threshold;
-		threshold(dst, dst_threshold, 125, 255, THRESH_BINARY);
+		threshold(dst, dst_threshold, 100, 255, THRESH_BINARY);
 
 		//캐니
 		Canny(dst_threshold, frame_edge, 50, 150);
@@ -81,13 +81,13 @@ int main()
 
 		// 허프
 		vector<Vec4i> lines1;
-		HoughLinesP(edge, lines1, 1, CV_PI / 180, 30, 30, 10);
-		
+		HoughLinesP(edge, lines1, 1, CV_PI / 180, 30, 10, 10);
+
 		vector<Vec4i> l_lines, r_lines;
 		for (size_t i = 0; i < lines1.size(); i++) {
 			Vec4i l = lines1[i];
 
-			if (abs(l[3] - l[1]) > 30) {
+			if (abs(l[3] - l[1]) > 10) {
 				if (l[0] < 320 && l[2] < 320) {
 					l_lines.push_back(l);
 				}
@@ -113,12 +113,12 @@ int main()
 			lpos = 0;
 		else
 			lpos = get_pos_ransac(l_lines, frame);
-
+		
 		if (r_lines.size() == 0)
 			rpos = 640;
 		else
 			rpos = get_pos_ransac(r_lines, frame);
-
+	
 		rectangle(frame, Rect(Point(lpos - 10, 390), Point(lpos + 10, 410)), Scalar(0, 255, 0), 2, LINE_AA);
 		rectangle(frame, Rect(Point(rpos - 10, 390), Point(rpos + 10, 410)), Scalar(0, 255, 0), 2, LINE_AA);
 
@@ -128,7 +128,6 @@ int main()
 
 		if (waitKey(1) == 27) //1ms마다 확인
 			break;
-
 		cout << "1" << endl;
 	}
 
@@ -139,6 +138,7 @@ int main()
 int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int pos_height)
 {
 	vector<Point2d> points;
+	//Mat board = Mat::zeros(Size(640, 480), CV_8UC1);
 
 	// gather dots from lines
 	for (size_t i = 0; i < lines.size(); i++) {
@@ -146,23 +146,20 @@ int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int po
 		pair<int, int> d_vec(l[2] - l[0], l[3] - l[1]);
 		double length = sqrt(pow(d_vec.first, 2) + pow(d_vec.second, 2));
 
-		for (int j = 0; j <= length; j++) {
+		//cout << l[0] << ", " << l[1] << endl;
+
+		for (int j = 0; j <= length; ) {
 			double x = l[0] + (d_vec.first * j) / length;
 			double y = l[1] + (d_vec.second * j) / length;
 			points.emplace_back(Point2d(x, y));
+			//x = (int)cvRound(x);
+			//y = (int)cvRound(y);
+			//board.at<uchar>(y, x) = 255;
+			j += 2;
 		}
-
-		/*
-		double m = (double)(l[0] - l[2])/(l[1] - l[3]);
-		
-		for (int x = l[0]; x <= l[2]; x++) {
-			double y = m * (x - l[0]) + l[1];
-			points.emplace_back(Point2d(x, y));
-		}
-		*/
 	}
 
-	int max_count = 0;
+	int max_count = -1;
 	int max_p1, max_p2;
 
 	for (int i = 0; i < 50; i++) {
@@ -177,6 +174,7 @@ int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int po
 		// compute params
 		double m, n;
 		get_line_param(points[p1], points[p2], m, n);
+	
 
 
 		// varfication
@@ -184,16 +182,19 @@ int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int po
 
 		for (auto& point : points) {
 			double distance = abs(m * point.x - point.y + n) / sqrt(m * m + 1);
-			if (distance < inlier_thres)
+			if (distance < inlier_thres) {
 				count++;
+			}
 		}
 
 		if (count > max_count) {
 			max_p1 = p1;
 			max_p2 = p2;
+			max_count = count;
 		}
 	}
 
+	//line(board, points[max_p1], points[max_p2], 128, 2, LINE_AA);
 	line(frame, points[max_p1], points[max_p2], Scalar(0, 255, 0), 2, LINE_AA);
 
 	// calculate pos
