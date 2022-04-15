@@ -7,16 +7,10 @@ using namespace std;
 using namespace cv;
 
 
-//void keep_brightness(frame, int target);
-//void noise_handling(frame);
 int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres = 10.0, int pos_height = 400);
 
 template <typename T>
 void get_line_param(T& p1, T& p2, double& m, double& n);
-
-int pos_hue1 = 10, pos_hue2 = 30, pos_sat1 = 100, pos_sat2 = 255;
-Scalar lowerb(pos_hue1, pos_sat1, 100);
-Scalar upperb(pos_hue2, pos_sat2, 255);
 
 random_device rd;
 mt19937 gen(rd());
@@ -91,10 +85,10 @@ int main()
 		
 			double m = double(l[1] - l[3]) / (l[0] - l[2]);
 			if (abs(l[3] - l[1]) > 10) {
-				if (m < 0) {
+				if (m < 0 && l[2] < 400) {
 					l_lines.push_back(l);
 				}
-				else {
+				else if(m > 0 && l[0] > 240){
 					r_lines.push_back(l);
 				}
 			}
@@ -196,8 +190,6 @@ int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int po
 		double m, n;
 		get_line_param(points[p1], points[p2], m, n);
 	
-
-
 		// varfication
 		int count = 0;
 
