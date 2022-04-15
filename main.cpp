@@ -1,5 +1,5 @@
 #include <iostream>
-#include <cstdlib>
+#include <random>
 #include "opencv2/opencv.hpp"
 
 using namespace std;
@@ -8,7 +8,7 @@ using namespace cv;
 
 //void keep_brightness(frame, int target);
 //void noise_handling(frame);
-int get_pos_ransac(vector<Vec4i>& lines, double inlier_thres = 20.0, int pos_height = 400);
+int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres = 10.0, int pos_height = 400);
 
 template <typename T>
 void get_line_param(T& p1, T& p2, double& m, double& n);
@@ -17,10 +17,11 @@ int pos_hue1 = 10, pos_hue2 = 30, pos_sat1 = 100, pos_sat2 = 255;
 Scalar lowerb(pos_hue1, pos_sat1, 100);
 Scalar upperb(pos_hue2, pos_sat2, 255);
 
+random_device rd;
+mt19937 gen(rd());
+
 int main()
 {
-	srand(0);
-
 	VideoCapture cap;
 	cap.open("subProject.avi");
 
@@ -111,12 +112,12 @@ int main()
 		if (l_lines.size() == 0)
 			lpos = 0;
 		else
-			lpos = get_pos_ransac(l_lines);
+			lpos = get_pos_ransac(l_lines, frame);
 
 		if (r_lines.size() == 0)
 			rpos = 640;
 		else
-			rpos = get_pos_ransac(r_lines);
+			rpos = get_pos_ransac(r_lines, frame);
 
 		rectangle(frame, Rect(Point(lpos - 10, 390), Point(lpos + 10, 410)), Scalar(0, 255, 0), 2, LINE_AA);
 		rectangle(frame, Rect(Point(rpos - 10, 390), Point(rpos + 10, 410)), Scalar(0, 255, 0), 2, LINE_AA);
@@ -127,38 +128,52 @@ int main()
 
 		if (waitKey(1) == 27) //1ms마다 확인
 			break;
+
+		cout << "1" << endl;
 	}
 
 	cap.release();
 	destroyAllWindows();
 }
 
-int get_pos_ransac(vector<Vec4i>& lines, double inlier_thres, int pos_height) 
+int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int pos_height)
 {
 	vector<Point2d> points;
 
 	// gather dots from lines
 	for (size_t i = 0; i < lines.size(); i++) {
 		Vec4i l = lines[i];
+		pair<int, int> d_vec(l[2] - l[0], l[3] - l[1]);
+		double length = sqrt(pow(d_vec.first, 2) + pow(d_vec.second, 2));
+
+		for (int j = 0; j <= length; j++) {
+			double x = l[0] + (d_vec.first * j) / length;
+			double y = l[1] + (d_vec.second * j) / length;
+			points.emplace_back(Point2d(x, y));
+		}
+
+		/*
 		double m = (double)(l[0] - l[2])/(l[1] - l[3]);
 		
 		for (int x = l[0]; x <= l[2]; x++) {
 			double y = m * (x - l[0]) + l[1];
 			points.emplace_back(Point2d(x, y));
 		}
+		*/
 	}
 
 	int max_count = 0;
 	int max_p1, max_p2;
 
-	for (int i = 0; i < 30; i++) {
+	for (int i = 0; i < 50; i++) {
 		// select two points randomly
-		int p1 = rand() % points.size();
-		int p2 = rand() % points.size();
+		uniform_int_distribution<int> dis(0, points.size() - 1);
+		int p1 = dis(gen);
+		int p2 = dis(gen);
 
-		while (p1 == p2) 
-			p2 = rand() % points.size();
-
+		while (p1 == p2) {
+			p2 = dis(gen);
+		}
 		// compute params
 		double m, n;
 		get_line_param(points[p1], points[p2], m, n);
@@ -178,6 +193,8 @@ int get_pos_ransac(vector<Vec4i>& lines, double inlier_thres, int pos_height)
 			max_p2 = p2;
 		}
 	}
+
+	line(frame, points[max_p1], points[max_p2], Scalar(0, 255, 0), 2, LINE_AA);
 
 	// calculate pos
 	double m, n;
