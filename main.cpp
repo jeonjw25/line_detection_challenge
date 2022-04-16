@@ -153,7 +153,6 @@ int main()
 int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int pos_height)
 {
 	vector<Point2d> points;
-	//Mat board = Mat::zeros(Size(640, 480), CV_8UC1);
 
 	// gather dots from lines
 	for (size_t i = 0; i < lines.size(); i++) {
@@ -161,16 +160,12 @@ int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int po
 		pair<int, int> d_vec(l[2] - l[0], l[3] - l[1]);
 		double length = sqrt(pow(d_vec.first, 2) + pow(d_vec.second, 2));
 
-		//cout << l[0] << ", " << l[1] << endl;
+	
 
-		for (int j = 0; j <= length; ) {
-			double x = l[0] + (d_vec.first * j) / length;
-			double y = l[1] + (d_vec.second * j) / length;
+		for (int j = 0; j <= length/2; j += 1) {
+			double x = l[0] + (d_vec.first * 2 * j) / length;
+			double y = l[1] + (d_vec.second * 2 * j) / length;
 			points.emplace_back(Point2d(x, y));
-			//x = (int)cvRound(x);
-			//y = (int)cvRound(y);
-			//board.at<uchar>(y, x) = 255;
-			j += 2;
 		}
 	}
 

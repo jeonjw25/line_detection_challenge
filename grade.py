@@ -23,5 +23,8 @@ for i, row in ground_truth.iterrows():
 
 
 print("accuracy: ", str(sum(result)/len(ground_truth)*100), "%")
+plt.xlabel("fps(x30)")
+plt.ylabel("correct")
+
 plt.plot(result)
 plt.show()
