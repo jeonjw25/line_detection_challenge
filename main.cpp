@@ -7,7 +7,8 @@ using namespace std;
 using namespace cv;
 
 
-int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres = 10.0, int pos_height = 400);
+int get_pos(vector<Vec4i>& lines);
+int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres = 12.0, int pos_height = 400);
 
 template <typename T>
 void get_line_param(T& p1, T& p2, double& m, double& n);
@@ -122,9 +123,6 @@ int main()
 		String text = format("Frame number: %d", pos);
 		putText(frame, text, Point(20, 50), FONT_HERSHEY_SIMPLEX, 0.7, Scalar(0, 0, 255), 1, LINE_AA);
 
-		//imshow("frame", frame);
-		//imshow("frame_edge", frame_edge);
-		//imshow("dst_threshold", dst_threshold);
 		vriter << frame;
 
 		if (waitKey(1) == 27) //1ms마다 확인
@@ -148,6 +146,24 @@ int main()
 	outfile.close();
 	cap.release();
 	destroyAllWindows();
+}
+
+int get_pos(vector<Vec4i>& lines) {
+	double mean_m = 0.0, mean_n = 0.0;
+	for (size_t i = 0; i < lines.size(); i++) {
+		Vec4i l = lines[i];
+		double m, n;
+		Point p1(l[0], l[1]);
+		Point p2(l[2], l[3]);
+		get_line_param(p1, p2, m, n);
+		mean_m += m;
+		mean_n += n;
+	}
+	mean_m /= lines.size();
+	mean_n /= lines.size();
+
+	int pos = cvRound((400 - mean_n) / mean_m);
+	return pos;
 }
 
 int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int pos_height)
@@ -202,7 +218,6 @@ int get_pos_ransac(vector<Vec4i>& lines, Mat& frame, double inlier_thres, int po
 		}
 	}
 
-	//line(board, points[max_p1], points[max_p2], 128, 2, LINE_AA);
 	line(frame, points[max_p1], points[max_p2], Scalar(0, 255, 0), 2, LINE_AA);
 
 	// calculate pos
